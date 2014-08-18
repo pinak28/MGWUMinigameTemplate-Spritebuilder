@@ -9,6 +9,6 @@
 
 @interface MyCharacter : MGWUCharacter
 
--(void)jump;
+-(void)fly;
 
 @end

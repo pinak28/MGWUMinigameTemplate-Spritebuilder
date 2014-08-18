@@ -160,8 +160,6 @@
 		</dict>
 		<key>backgroundsCity</key>
 		<dict>
-			<key>isDirty</key>
-			<true/>
 			<key>isSmartSpriteSheet</key>
 			<true/>
 			<key>previewFolderHidden</key>
@@ -174,8 +172,6 @@
 		</dict>
 		<key>backgroundsMisc1</key>
 		<dict>
-			<key>isDirty</key>
-			<true/>
 			<key>isSmartSpriteSheet</key>
 			<true/>
 			<key>previewFolderHidden</key>
@@ -198,8 +194,6 @@
 		</dict>
 		<key>backgroundsWater</key>
 		<dict>
-			<key>isDirty</key>
-			<true/>
 			<key>isSmartSpriteSheet</key>
 			<true/>
 			<key>previewFolderHidden</key>
@@ -289,8 +283,6 @@
 		</dict>
 		<key>characterAny</key>
 		<dict>
-			<key>isDirty</key>
-			<true/>
 			<key>isSmartSpriteSheet</key>
 			<true/>
 			<key>previewFolderHidden</key>
@@ -299,6 +291,8 @@
 		<key>characters</key>
 		<dict>
 			<key>isSmartSpriteSheet</key>
+			<true/>
+			<key>previewFolderHidden</key>
 			<true/>
 		</dict>
 		<key>enemies</key>

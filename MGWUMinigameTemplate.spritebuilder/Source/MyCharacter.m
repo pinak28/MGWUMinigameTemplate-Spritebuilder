@@ -94,8 +94,8 @@
 
 // This method tells the character to jump by giving it an upward velocity.
 // It's been added to a physics node in the main scene, like the penguins Peeved Penguins, so it will fall automatically!
--(void)jump {
-    self.physicsBody.velocity = ccp(0,122);
+-(void)fly {
+    [self.physicsBody applyImpulse:ccp(0, 400.f)];
 }
 
 @end
