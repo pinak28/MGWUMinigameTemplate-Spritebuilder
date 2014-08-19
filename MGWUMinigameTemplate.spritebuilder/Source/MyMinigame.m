@@ -8,7 +8,6 @@
 #import "MyMinigame.h"
 #import "CCPhysics+ObjectiveChipmunk.h"
 
-
 static const CGFloat scrollSpeed = 130.f;
 static const CGFloat firstEnemyPosition = 280.f;
 static const CGFloat distanceBetweenEnemies = 210.f;
@@ -47,11 +46,11 @@ static const NSTimeInterval timeAllowed = 60;
     CCNode *_cloud1;
     CCNode *_cloud2;
     NSArray *_clouds;
-
+    
     
     NSTimeInterval _sinceTouch;
     NSTimeInterval _timeElapsed;
-    
+    NSTimeInterval _timeLeft;
     
     NSMutableArray *_enemies;
     NSMutableArray *_stars;
@@ -67,16 +66,24 @@ static const NSTimeInterval timeAllowed = 60;
     CCLabelTTF *_starsLabel;
     CCLabelTTF *_timeLabel;
     CCLabelTTF *_livesLabel;
-//
-//    int points;
+    
+    CCNode* _summaryNode;
+    CCButton* _endButton;
+    CCLabelTTF *_finalStarLabel;
+    CCLabelTTF *_finalPowerLabel;
+    CCLabelTTF *_finalScoreLabel;
+    
+    int finalScore;
 }
 
+#pragma mark - Initialization
 -(id)init {
     if ((self = [super init])) {
         // Initialize any arrays, dictionaries, etc in here
         self.instructions = @"These are the game instructions :D";
         livesLeft = 3;
         starsCollected = 0;
+        finalScore = 0;
     }
     return self;
 }
@@ -85,6 +92,7 @@ static const NSTimeInterval timeAllowed = 60;
 -(void)didLoadFromCCB {
     // Set up anything connected to Sprite Builder here
     self.userInteractionEnabled = TRUE;
+    
     
     _dunes = @[_dune1, _dune2];
     _clouds = @[_cloud1, _cloud2];
@@ -125,6 +133,7 @@ static const NSTimeInterval timeAllowed = 60;
 }
 
 
+
 #pragma mark - Spawning
 
 - (void)spawnNewEnemy {
@@ -160,6 +169,13 @@ static const NSTimeInterval timeAllowed = 60;
     [_stars addObject:star];
 }
 
+-(void)onEnter {
+    [super onEnter];
+    // Create anything you'd like to draw here
+}
+
+
+#pragma mark - Touch and update
 - (void)touchBegan:(UITouch *)touch withEvent:(UIEvent *)event {
     
     [self.hero fly];
@@ -170,16 +186,6 @@ static const NSTimeInterval timeAllowed = 60;
 
 }
 
-
--(void)onEnter {
-    [super onEnter];
-    // Create anything you'd like to draw here
-}
-
-- (BOOL)gameOver{
-    return FALSE;
-}
-
 -(void)update:(CCTime)delta {
     // Called each update cycle
     // n.b. Lag and other factors may cause it to be called more or less frequently on different devices or sessions
@@ -187,8 +193,8 @@ static const NSTimeInterval timeAllowed = 60;
     
     _sinceTouch += delta;
     _timeElapsed += delta;
-    NSTimeInterval timeLeft = timeAllowed - _timeElapsed;
-    _timeLabel.string = [NSString stringWithFormat:@"Time Left: %ds", (int)timeLeft];
+    _timeLeft = timeAllowed - _timeElapsed;
+    _timeLabel.string = [NSString stringWithFormat:@"Time Left: %ds", (int)_timeLeft];
    
     self.hero.physicsBody.velocity = ccp(130, self.hero.physicsBody.velocity.y);
     
@@ -196,8 +202,6 @@ static const NSTimeInterval timeAllowed = 60;
         [self.hero.physicsBody applyImpulse:ccp(0, -450.f)];
 
     }
-    
-    
     _physicsNode.position = ccp(_physicsNode.position.x - (scrollSpeed * delta), _physicsNode.position.y);
     
 
@@ -232,8 +236,6 @@ static const NSTimeInterval timeAllowed = 60;
             }
         }
     }
-    
-
     
     NSMutableArray *offScreenEnemies = nil;
     for (CCNode *enemy in _enemies) {
@@ -272,21 +274,44 @@ static const NSTimeInterval timeAllowed = 60;
         [self spawnNewStars];
     }
     
-    if ((int)timeLeft <= 0 || livesLeft == 0) {
+    if ([self gameOver]) {
         
         //display score
-        [self endMinigame];
+        finalScore = [self calculateScore];
     }
     
-
-
 }
+
+#pragma mark - End Game / Points Evaluation
+
+- (BOOL)gameOver{
+    return ((int)_timeLeft <= 0 || livesLeft == 0);
+}
+
 
 -(void)endMinigame {
     // Be sure you call this method when you end your minigame!
     // Of course you won't have a random score, but your score *must* be between 1 and 100 inclusive
-    [self endMinigameWithScore:arc4random()%100 + 1];
+    [self endMinigameWithScore:finalScore];
 }
+
+- (int)calculateScore{
+
+    _endButton.visible = TRUE;
+    
+    _finalStarLabel.string = [NSString stringWithFormat:@"Stars Collected: %d",starsCollected];
+    _finalScoreLabel.string = [NSString stringWithFormat:@"100"];
+    _summaryNode.visible = TRUE;
+    
+    int score = 100;
+    
+    
+    
+    return score;
+}
+
+
+
 
 #pragma mark - Collisions
 
@@ -331,7 +356,7 @@ static const NSTimeInterval timeAllowed = 60;
         
     }
     else{
-        [self endMinigame];
+        finalScore = [self calculateScore];
     }
 }
 
@@ -355,7 +380,7 @@ static const NSTimeInterval timeAllowed = 60;
         _livesLabel.string = [NSString stringWithFormat:@"Lives: %d",livesLeft];
     }
     else{
-        [self endMinigame];
+        finalScore = [self calculateScore];
     }
 }
 
