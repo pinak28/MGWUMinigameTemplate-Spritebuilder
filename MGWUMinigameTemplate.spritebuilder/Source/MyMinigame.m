@@ -10,11 +10,11 @@
 
 
 static const CGFloat scrollSpeed = 130.f;
-static const CGFloat cloudScrollSpeed = 70.f;
 static const CGFloat firstEnemyPosition = 280.f;
 static const CGFloat distanceBetweenEnemies = 210.f;
 static const CGFloat firstStarPosition = 200.f;
 static const CGFloat distanceBetweenStars = 50.f;
+static const NSTimeInterval timeAllowed = 60;
 
 @interface CGPointObject : NSObject{
     CGPoint _ratio;
@@ -50,6 +50,8 @@ static const CGFloat distanceBetweenStars = 50.f;
 
     
     NSTimeInterval _sinceTouch;
+    NSTimeInterval _timeElapsed;
+    
     
     NSMutableArray *_enemies;
     NSMutableArray *_stars;
@@ -59,11 +61,13 @@ static const CGFloat distanceBetweenStars = 50.f;
     BOOL _gameOver;
     
     
-    int lives;
+    int livesLeft;
+    int starsCollected;
     
-//    CCLabelTTF *_scoreLabel;
-//    CCLabelTTF *_nameLabel;
-//    
+    CCLabelTTF *_starsLabel;
+    CCLabelTTF *_timeLabel;
+    CCLabelTTF *_livesLabel;
+//
 //    int points;
 }
 
@@ -71,7 +75,8 @@ static const CGFloat distanceBetweenStars = 50.f;
     if ((self = [super init])) {
         // Initialize any arrays, dictionaries, etc in here
         self.instructions = @"These are the game instructions :D";
-        lives = 3;
+        livesLeft = 3;
+        starsCollected = 0;
     }
     return self;
 }
@@ -100,7 +105,11 @@ static const CGFloat distanceBetweenStars = 50.f;
         [_parallaxBackground addChild:cloud z:0 parallaxRatio:_cloudParallaxRatio positionOffset:offset];
         NSLog(@"first: %f",offset.y);
     }
-
+    
+    for (CCNode *dune in _dunes) {
+        dune.physicsBody.collisionType = @"level";
+    }
+    
     
     [self spawnNewEnemy];
     [self spawnNewEnemy];
@@ -113,9 +122,6 @@ static const CGFloat distanceBetweenStars = 50.f;
     self.hero.physicsBody.collisionType = @"hero";
     _physicsNode.collisionDelegate = self;
 
-    
-    // We're calling a public method of the character that tells it to jump!
-   // [self.hero fly];
 }
 
 
@@ -159,7 +165,7 @@ static const CGFloat distanceBetweenStars = 50.f;
     [self.hero fly];
     [self.hero.physicsBody applyImpulse:ccp(0, 800.f)];
 
-    NSLog(@"tapped");
+
     _sinceTouch = 0.f;
 
 }
@@ -180,8 +186,9 @@ static const CGFloat distanceBetweenStars = 50.f;
     // delta will tell you how much time has passed since the last cycle (in seconds)
     
     _sinceTouch += delta;
-    
-    
+    _timeElapsed += delta;
+    NSTimeInterval timeLeft = timeAllowed - _timeElapsed;
+    _timeLabel.string = [NSString stringWithFormat:@"Time Left: %ds", (int)timeLeft];
    
     self.hero.physicsBody.velocity = ccp(130, self.hero.physicsBody.velocity.y);
     
@@ -190,10 +197,6 @@ static const CGFloat distanceBetweenStars = 50.f;
 
     }
     
-
-//    if ((_sinceTouch > 0.5f)) {
-//        [self.hero.physicsBody applyAngularImpulse:-40000.f*delta];
-//    }
     
     _physicsNode.position = ccp(_physicsNode.position.x - (scrollSpeed * delta), _physicsNode.position.y);
     
@@ -269,7 +272,11 @@ static const CGFloat distanceBetweenStars = 50.f;
         [self spawnNewStars];
     }
     
-
+    if ((int)timeLeft <= 0 || livesLeft == 0) {
+        
+        //display score
+        [self endMinigame];
+    }
     
 
 
@@ -290,10 +297,44 @@ static const CGFloat distanceBetweenStars = 50.f;
 }
 
 -(BOOL)ccPhysicsCollisionBegin:(CCPhysicsCollisionPair *)pair hero:(CCNode *)hero enemy:(CCNode *)enemy {
-    NSLog(@"died");
+    NSLog(@"died by enemy");
     [self removeLife:enemy andreposition:hero];
     return TRUE;
 }
+
+-(BOOL)ccPhysicsCollisionPostSolve:(CCPhysicsCollisionPair *)pair hero:(CCNode *)hero level:(CCNode *)level {
+    float energy = [pair totalKineticEnergy];
+    NSLog(@"%f",energy);
+    if (energy > 10000.f) {
+        [self removeLifeByCollisionOnFloor:hero];
+        NSLog(@"died by collision");
+
+    }
+    return TRUE;
+}
+
+
+
+- (void)removeLifeByCollisionOnFloor:(CCNode*)hero{
+    if (![self gameOver]) {
+        // load particle effect
+        CCParticleSystem *explosion = (CCParticleSystem *)[CCBReader load:@"enemyCollisionDeath"];
+        // make the particle effect clean itself up, once it is completed
+        explosion.autoRemoveOnFinish = TRUE;
+        // place the particle effect on the collision spot position
+        explosion.position = hero.position;
+        // add the particle effect to the same node the seal is on
+        [hero.parent addChild:explosion];
+        
+        livesLeft--;
+        _livesLabel.string = [NSString stringWithFormat:@"Lives: %d",livesLeft];
+        
+    }
+    else{
+        [self endMinigame];
+    }
+}
+
 
 - (void) removeLife:(CCNode *)enemy andreposition:(CCNode *)hero{
     if (![self gameOver]){
@@ -301,7 +342,7 @@ static const CGFloat distanceBetweenStars = 50.f;
         CCParticleSystem *explosion = (CCParticleSystem *)[CCBReader load:@"enemyCollisionDeath"];
         // make the particle effect clean itself up, once it is completed
         explosion.autoRemoveOnFinish = TRUE;
-        // place the particle effect on the seals position
+        // place the particle effect on the enemy's position
         explosion.position = enemy.position;
         // add the particle effect to the same node the seal is on
         [enemy.parent addChild:explosion];
@@ -310,6 +351,8 @@ static const CGFloat distanceBetweenStars = 50.f;
         [enemy removeFromParent];
         [_enemies removeObject:enemy];
         [self spawnNewEnemy];
+        livesLeft--;
+        _livesLabel.string = [NSString stringWithFormat:@"Lives: %d",livesLeft];
     }
     else{
         [self endMinigame];
@@ -331,6 +374,11 @@ static const CGFloat distanceBetweenStars = 50.f;
     [star removeFromParent];
     [_stars removeObject:star];
     [self spawnNewStars];
+    
+    // update stars counter
+    starsCollected++;
+    _starsLabel.string = [NSString stringWithFormat:@"Stars: %d", starsCollected];
+    
 }
 
 // DO NOT DELETE!

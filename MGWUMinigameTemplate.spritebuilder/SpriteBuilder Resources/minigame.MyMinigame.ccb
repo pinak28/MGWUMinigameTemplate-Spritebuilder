@@ -1022,8 +1022,6 @@
 								</array>
 							</dict>
 						</array>
-						<key>selected</key>
-						<true/>
 					</dict>
 					<dict>
 						<key>UUID</key>
@@ -1037,7 +1035,7 @@
 						<key>displayName</key>
 						<string>time</string>
 						<key>memberVarAssignmentName</key>
-						<string>_time</string>
+						<string>_timeLabel</string>
 						<key>memberVarAssignmentType</key>
 						<integer>1</integer>
 						<key>properties</key>
@@ -1257,7 +1255,7 @@
 						<key>displayName</key>
 						<string>stars</string>
 						<key>memberVarAssignmentName</key>
-						<string>_stars</string>
+						<string>_starsLabel</string>
 						<key>memberVarAssignmentType</key>
 						<integer>1</integer>
 						<key>properties</key>
@@ -1477,7 +1475,7 @@
 						<key>displayName</key>
 						<string>lives</string>
 						<key>memberVarAssignmentName</key>
-						<string>_lives</string>
+						<string>_livesLabel</string>
 						<key>memberVarAssignmentType</key>
 						<integer>1</integer>
 						<key>properties</key>
@@ -1684,6 +1682,8 @@
 								</array>
 							</dict>
 						</array>
+						<key>selected</key>
+						<true/>
 					</dict>
 					<dict>
 						<key>UUID</key>
