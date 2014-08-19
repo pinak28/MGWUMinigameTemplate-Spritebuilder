@@ -6,15 +6,36 @@
 //
 
 #import "MyMinigame.h"
+#import "CCPhysics+ObjectiveChipmunk.h"
+
 
 static const CGFloat scrollSpeed = 130.f;
+static const CGFloat cloudScrollSpeed = 70.f;
+static const CGFloat firstEnemyPosition = 280.f;
+static const CGFloat distanceBetweenEnemies = 210.f;
+static const CGFloat firstStarPosition = 200.f;
+static const CGFloat distanceBetweenStars = 50.f;
+
+@interface CGPointObject : NSObject{
+    CGPoint _ratio;
+    CGPoint _offset;
+    CCNode *__unsafe_unretained _child; // weak ref
+
+}
+@property (nonatomic,readwrite) CGPoint ratio;
+@property (nonatomic,readwrite) CGPoint offset;
+@property (nonatomic,readwrite,unsafe_unretained) CCNode *child;
++(id) pointWithCGPoint:(CGPoint)point offset:(CGPoint)offset;
+-(id) initWithCGPoint:(CGPoint)point offset:(CGPoint)offset;
+
+@end
 
 @implementation MyMinigame{
     
     CCPhysicsNode* _physicsNode;
     
     CGPoint _cloudParallaxRatio;
-    CGPoint _bushParallaxRatio;
+    CGPoint _duneParallaxRatio;
     
     CCNode *_parallaxContainer;
     CCParallaxNode *_parallaxBackground;
@@ -23,21 +44,23 @@ static const CGFloat scrollSpeed = 130.f;
     CCNode *_dune2;
     NSArray *_dunes;
     
-//    CCNode *_cloud1;
-//    CCNode *_cloud2;
-//    NSArray *_clouds;
-//    
-//    CCNode *_bush1;
-//    CCNode *_bush2;
-//    NSArray *_bushes;
+    CCNode *_cloud1;
+    CCNode *_cloud2;
+    NSArray *_clouds;
+
     
     NSTimeInterval _sinceTouch;
     
-//    NSMutableArray *_obstacles;
+    NSMutableArray *_enemies;
+    NSMutableArray *_stars;
     
     CCButton *_restartButton;
     
     BOOL _gameOver;
+    
+    
+    int lives;
+    
 //    CCLabelTTF *_scoreLabel;
 //    CCLabelTTF *_nameLabel;
 //    
@@ -48,19 +71,87 @@ static const CGFloat scrollSpeed = 130.f;
     if ((self = [super init])) {
         // Initialize any arrays, dictionaries, etc in here
         self.instructions = @"These are the game instructions :D";
+        lives = 3;
     }
     return self;
 }
+
 
 -(void)didLoadFromCCB {
     // Set up anything connected to Sprite Builder here
     self.userInteractionEnabled = TRUE;
     
     _dunes = @[_dune1, _dune2];
+    _clouds = @[_cloud1, _cloud2];
     
+    _enemies = [NSMutableArray array];
+    _stars = [NSMutableArray array];
+    
+    _parallaxBackground = [CCParallaxNode node];
+    [_parallaxContainer addChild:_parallaxBackground];
+    
+    // Note that the bush ratio is larger than the cloud -> want cloud to move slower
+    _cloudParallaxRatio = ccp(0.5, 1);
+    
+    
+    for (CCNode *cloud in _clouds) {
+        CGPoint offset = cloud.position;
+        [cloud removeFromParent];
+        [_parallaxBackground addChild:cloud z:0 parallaxRatio:_cloudParallaxRatio positionOffset:offset];
+        NSLog(@"first: %f",offset.y);
+    }
+
+    
+    [self spawnNewEnemy];
+    [self spawnNewEnemy];
+    [self spawnNewEnemy];
+    
+    for (int i = 0; i <10 ; ++i) {
+        [self spawnNewStars];
+    }
+    
+    self.hero.physicsBody.collisionType = @"hero";
+    _physicsNode.collisionDelegate = self;
+
     
     // We're calling a public method of the character that tells it to jump!
    // [self.hero fly];
+}
+
+
+#pragma mark - Spawning
+
+- (void)spawnNewEnemy {
+    CCNode *previousEnemy = [_enemies lastObject];
+    CGFloat previousEnemyXPosition = previousEnemy.position.x;
+    if (!previousEnemy) {
+        // this is the first obstacle
+        previousEnemyXPosition = firstEnemyPosition;
+    }
+    CCNode *enemy = [CCBReader load:@"Enemy"];
+    enemy.scale = 0.4;
+    // generate a random number between 0.0 and 2.0
+    float yPoint = [self randomFloatBetween:50.f and:250.f];
+
+    enemy.position = ccp(previousEnemyXPosition + distanceBetweenEnemies, yPoint);
+    [_physicsNode addChild:enemy];
+    [_enemies addObject:enemy];
+}
+
+- (void)spawnNewStars {
+    CCNode *previousStar = [_stars lastObject];
+    CGFloat previousStarXPosition = previousStar.position.x;
+    if (!previousStar) {
+        // this is the first obstacle
+        previousStarXPosition = firstStarPosition;
+    }
+    CCNode *star = [CCBReader load:@"Star"];
+    // generate a random number between 0.0 and 2.0
+    float yPoint = [self randomFloatBetween:70.f and:250.f];
+    
+    star.position = ccp(previousStarXPosition + distanceBetweenStars, yPoint);
+    [_physicsNode addChild:star];
+    [_stars addObject:star];
 }
 
 - (void)touchBegan:(UITouch *)touch withEvent:(UIEvent *)event {
@@ -79,6 +170,10 @@ static const CGFloat scrollSpeed = 130.f;
     // Create anything you'd like to draw here
 }
 
+- (BOOL)gameOver{
+    return FALSE;
+}
+
 -(void)update:(CCTime)delta {
     // Called each update cycle
     // n.b. Lag and other factors may cause it to be called more or less frequently on different devices or sessions
@@ -88,8 +183,6 @@ static const CGFloat scrollSpeed = 130.f;
     
     
    
-    //clamp velocity
-//   float yVelocity = clampf(_hero.physicsBody.velocity.y, -1 * MAXFLOAT, 200.f);
     self.hero.physicsBody.velocity = ccp(130, self.hero.physicsBody.velocity.y);
     
     if (self.hero.position.y >=300) {
@@ -104,8 +197,7 @@ static const CGFloat scrollSpeed = 130.f;
     
     _physicsNode.position = ccp(_physicsNode.position.x - (scrollSpeed * delta), _physicsNode.position.y);
     
-    //NSLog(@"node %f",_physicsNode.position.x);
-    NSLog(@"hero %f",self.hero.position.y);
+
     // loop the ground
     for (CCNode *dune in _dunes) {
         // get the world position of the ground
@@ -118,77 +210,68 @@ static const CGFloat scrollSpeed = 130.f;
         }
     }
     
+    _parallaxBackground.position = ccp(_parallaxBackground.position.x - (scrollSpeed * delta), _parallaxBackground.position.y);
+    
+    // loop the clouds
+    for (CCNode *cloud in _clouds) {
+        // get the world position of the cloud
+        CGPoint cloudWorldPosition = [_parallaxBackground convertToWorldSpace:cloud.position];
+        // get the screen position of the cloud
+        CGPoint cloudScreenPosition = [self convertToNodeSpace:cloudWorldPosition];
+        
+        // if the left corner is one complete width off the screen,
+        // move it to the right
+        if (cloudScreenPosition.x <= (-1 * cloud.contentSize.width)) {
+            for (CGPointObject *child in _parallaxBackground.parallaxArray) {
+                if (child.child == cloud) {
+                    child.offset = ccp(child.offset.x + 2*cloud.contentSize.width, child.offset.y);
+                }
+            }
+        }
+    }
+    
 
     
-//    NSMutableArray *offScreenObstacles = nil;
-//    
-//    for (CCNode *obstacle in _obstacles) {
-//        CGPoint obstacleWorldPosition = [physicsNode convertToWorldSpace:obstacle.position];
-//        CGPoint obstacleScreenPosition = [self convertToNodeSpace:obstacleWorldPosition];
-//        if (obstacleScreenPosition.x < -obstacle.contentSize.width) {
-//            if (!offScreenObstacles) {
-//                offScreenObstacles = [NSMutableArray array];
-//            }
-//            [offScreenObstacles addObject:obstacle];
-//        }
-//    }
-//    
-//    for (CCNode *obstacleToRemove in offScreenObstacles) {
-//        [obstacleToRemove removeFromParent];
-//        [_obstacles removeObject:obstacleToRemove];
-//    }
-//    
-//    if (!_gameOver)
-//    {
-//        @try
-//        {
-//            character.physicsBody.velocity = ccp(80.f, clampf(character.physicsBody.velocity.y, -MAXFLOAT, 200.f));
-//            
-//            [super update:delta];
-//        }
-//        @catch(NSException* ex)
-//        {
-//            
-//        }
-//    }
-//    
-//    _parallaxBackground.position = ccp(_parallaxBackground.position.x - (character.physicsBody.velocity.x * delta), _parallaxBackground.position.y);
-//    
-//    // loop the bushes
-//    for (CCNode *bush in _bushes) {
-//        // get the world position of the bush
-//        CGPoint bushWorldPosition = [_parallaxBackground convertToWorldSpace:bush.position];
-//        // get the screen position of the bush
-//        CGPoint bushScreenPosition = [self convertToNodeSpace:bushWorldPosition];
-//        
-//        // if the left corner is one complete width off the screen,
-//        // move it to the right
-//        if (bushScreenPosition.x <= (-1 * bush.contentSize.width)) {
-//            for (CGPointObject *child in _parallaxBackground.parallaxArray) {
-//                if (child.child == bush) {
-//                    child.offset = ccp(child.offset.x + 2*bush.contentSize.width, child.offset.y);
-//                }
-//            }
-//        }
-//    }
-//    
-//    // loop the clouds
-//    for (CCNode *cloud in _clouds) {
-//        // get the world position of the cloud
-//        CGPoint cloudWorldPosition = [_parallaxBackground convertToWorldSpace:cloud.position];
-//        // get the screen position of the cloud
-//        CGPoint cloudScreenPosition = [self convertToNodeSpace:cloudWorldPosition];
-//        
-//        // if the left corner is one complete width off the screen,
-//        // move it to the right
-//        if (cloudScreenPosition.x <= (-1 * cloud.contentSize.width)) {
-//            for (CGPointObject *child in _parallaxBackground.parallaxArray) {
-//                if (child.child == cloud) {
-//                    child.offset = ccp(child.offset.x + 2*cloud.contentSize.width, child.offset.y);
-//                }
-//            }
-//        }
-//    }
+    NSMutableArray *offScreenEnemies = nil;
+    for (CCNode *enemy in _enemies) {
+        CGPoint enemyWorldPosition = [_physicsNode convertToWorldSpace:enemy.position];
+        CGPoint enemyScreenPosition = [self convertToNodeSpace:enemyWorldPosition];
+        if (enemyScreenPosition.x < -enemy.contentSize.width) {
+            if (!offScreenEnemies) {
+                offScreenEnemies = [NSMutableArray array];
+            }
+            [offScreenEnemies addObject:enemy];
+        }
+    }
+    for (CCNode *enemyToRemove in offScreenEnemies) {
+        [enemyToRemove removeFromParent];
+        [_enemies removeObject:enemyToRemove];
+        // for each removed obstacle, add a new one
+        [self spawnNewEnemy];
+    }
+    
+    NSMutableArray *offScreenStars = nil;
+    
+    for (CCNode *star in _stars) {
+        CGPoint starWorldPosition = [_physicsNode convertToWorldSpace:star.position];
+        CGPoint starScreenPosition = [self convertToNodeSpace:starWorldPosition];
+        if (starScreenPosition.x < -star.contentSize.width) {
+            if (!offScreenStars) {
+                offScreenStars = [NSMutableArray array];
+            }
+            [offScreenStars addObject:star];
+        }
+    }
+    for (CCNode *starToRemove in offScreenStars) {
+        [starToRemove removeFromParent];
+        [_stars removeObject:starToRemove];
+        // for each removed obstacle, add a new one
+        [self spawnNewStars];
+    }
+    
+
+    
+
 
 }
 
@@ -198,10 +281,67 @@ static const CGFloat scrollSpeed = 130.f;
     [self endMinigameWithScore:arc4random()%100 + 1];
 }
 
+#pragma mark - Collisions
+
+-(BOOL)ccPhysicsCollisionBegin:(CCPhysicsCollisionPair *)pair hero:(CCNode *)hero star:(CCNode *)star {
+    NSLog(@"star Collected");
+    [self starRemoved:star];
+    return TRUE;
+}
+
+-(BOOL)ccPhysicsCollisionBegin:(CCPhysicsCollisionPair *)pair hero:(CCNode *)hero enemy:(CCNode *)enemy {
+    NSLog(@"died");
+    [self removeLife:enemy andreposition:hero];
+    return TRUE;
+}
+
+- (void) removeLife:(CCNode *)enemy andreposition:(CCNode *)hero{
+    if (![self gameOver]){
+        // load particle effect
+        CCParticleSystem *explosion = (CCParticleSystem *)[CCBReader load:@"enemyCollisionDeath"];
+        // make the particle effect clean itself up, once it is completed
+        explosion.autoRemoveOnFinish = TRUE;
+        // place the particle effect on the seals position
+        explosion.position = enemy.position;
+        // add the particle effect to the same node the seal is on
+        [enemy.parent addChild:explosion];
+        
+        // finally, remove the destroyed seal
+        [enemy removeFromParent];
+        [_enemies removeObject:enemy];
+        [self spawnNewEnemy];
+    }
+    else{
+        [self endMinigame];
+    }
+}
+
+- (void)starRemoved:(CCNode *)star{
+
+    // load particle effect
+    CCParticleSystem *explosion = (CCParticleSystem *)[CCBReader load:@"starCollection"];
+    // make the particle effect clean itself up, once it is completed
+    explosion.autoRemoveOnFinish = TRUE;
+    // place the particle effect on the seals position
+    explosion.position = star.position;
+    // add the particle effect to the same node the seal is on
+    [star.parent addChild:explosion];
+    
+    // finally, remove the destroyed seal
+    [star removeFromParent];
+    [_stars removeObject:star];
+    [self spawnNewStars];
+}
+
 // DO NOT DELETE!
 -(MyCharacter *)hero {
     return (MyCharacter *)self.character;
 }
 // DO NOT DELETE!
+
+- (float)randomFloatBetween:(float)smallNumber and:(float)bigNumber {
+    float diff = bigNumber - smallNumber;
+    return (((float) (arc4random() % ((unsigned)RAND_MAX + 1)) / RAND_MAX) * diff) + smallNumber;
+}
 
 @end
