@@ -80,7 +80,7 @@ static const NSTimeInterval timeAllowed = 60;
 -(id)init {
     if ((self = [super init])) {
         // Initialize any arrays, dictionaries, etc in here
-        self.instructions = @"These are the game instructions :D";
+        self.instructions = @"In 2050, everyone in the world has become starstruck.\n This game is all about collecting as many stars as you can before the time runs out. You have 3 lives to collect as many stars as possible. By tapping the screen, your player moves up and falls by gravity. Remember, if your player collides too hard with the ground, it will lose a life.\n ";
         livesLeft = 3;
         starsCollected = 0;
         finalScore = 0;
@@ -93,7 +93,6 @@ static const NSTimeInterval timeAllowed = 60;
     // Set up anything connected to Sprite Builder here
     self.userInteractionEnabled = TRUE;
     
-    
     _dunes = @[_dune1, _dune2];
     _clouds = @[_cloud1, _cloud2];
     
@@ -105,7 +104,6 @@ static const NSTimeInterval timeAllowed = 60;
     
     // Note that the bush ratio is larger than the cloud -> want cloud to move slower
     _cloudParallaxRatio = ccp(0.5, 1);
-    
     
     for (CCNode *cloud in _clouds) {
         CGPoint offset = cloud.position;
@@ -278,6 +276,8 @@ static const NSTimeInterval timeAllowed = 60;
         
         //display score
         finalScore = [self calculateScore];
+        _timeLabel.string = [NSString stringWithFormat:@"Time Left: 0s"];
+        
     }
     
 }
@@ -299,13 +299,39 @@ static const NSTimeInterval timeAllowed = 60;
 
     _endButton.visible = TRUE;
     
+    [self.hero.physicsBody applyImpulse:ccp(0, -40000.f)];
+    
+    
     _finalStarLabel.string = [NSString stringWithFormat:@"Stars Collected: %d",starsCollected];
-    _finalScoreLabel.string = [NSString stringWithFormat:@"100"];
+    
+    int score;
+    
+    if (starsCollected >= 100 ) {
+        if (livesLeft == 3) {
+            score = 100;
+        }
+        else if (livesLeft ==  2){
+            score = 90;
+        }
+        else if (livesLeft == 1){
+            score = 80;
+        }
+        else{
+            score = 70;
+        }
+            
+    
+    }
+    else{
+        score = starsCollected - ((3 - livesLeft) * 10);
+        if (score < 0){
+            score = 10;
+        }
+    }
+    
+    _finalScoreLabel.string = [NSString stringWithFormat:@"%d", score];
+
     _summaryNode.visible = TRUE;
-    
-    int score = 100;
-    
-    
     
     return score;
 }
@@ -385,7 +411,6 @@ static const NSTimeInterval timeAllowed = 60;
 }
 
 - (void)starRemoved:(CCNode *)star{
-
     // load particle effect
     CCParticleSystem *explosion = (CCParticleSystem *)[CCBReader load:@"starCollection"];
     // make the particle effect clean itself up, once it is completed
